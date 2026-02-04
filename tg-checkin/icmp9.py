@@ -47,15 +47,20 @@ def send_tg_notification(data: Dict[str, str]):
         f"📦 总配额: {data.get('total', '未知')}\n"
         f"📈 已使用: {data.get('used', '未知')}\n"
         f"📉 剩余量: {data.get('remaining', '未知')}\n"
-        f"🖥️ 虚机数: {data.get('vm_count', '未知')}\n"
-        f"📝 虚机列表: {data.get('vm_info', '无')}"
+        f"🖥️ 虚机列表: {data.get('vm_info', '无')}"
     )
 
     url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
+    payload: Dict[str, Any] = {
+        'chat_id': TG_CHAT_ID,
+        'text': text,
+        'parse_mode': 'Markdown'
+    }
+
     try:
-        requests.post(url, data={'chat_id': TG_CHAT_ID, 'text': text, 'parse_mode': 'Markdown'}, timeout=15).raise_for_status()
+        requests.post(url, data=payload, timeout=10).raise_for_status()
         log('green', 'check', "TG 通知已发送")
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         log('red', 'error', f"TG 通知发送失败: {e}")
 
 
@@ -87,10 +92,6 @@ def parse_all_info(text: str, current_data: Dict[str, str], parse_user: bool = F
     rem = re.search(r'剩余[：:\s]+([\d\.]+\s*[GMB]+)', text)
     if rem:
         current_data['remaining'] = rem.group(1)
-
-    vms = re.search(r'虚机[：:\s]+(\d+)', text)
-    if vms:
-        current_data['vm_count'] = f"{vms.group(1)} 台"
 
     return current_data
 
@@ -132,7 +133,6 @@ async def main():
         'total': '未知',
         'used': '未知',
         'remaining': '未知',
-        'vm_count': '未知',
         'vm_info': '未知'
     }
 
@@ -184,7 +184,6 @@ async def main():
                     clean_text = clean_text.split("虚拟机列表")[-1]
                 clean_text = clean_text.strip()
                 info['vm_info'] = clean_text if clean_text else "您当前没有虚拟机"
-                log('green', 'check', f"虚拟机列表: {info['vm_info']}")
             else:
                 log('yellow', 'warning', "虚拟机列表获取失败")
 
@@ -206,8 +205,7 @@ async def main():
         log('cyan', 'arrow', f"当前总配额: {info['total']}")
         log('cyan', 'arrow', f"已用配额: {info['used']}")
         log('cyan', 'arrow', f"剩余配额: {info['remaining']}")
-        log('cyan', 'arrow', f"虚拟机数量: {info['vm_count']}")
-        log('cyan', 'arrow', f"虚拟机详情: {info['vm_info']}")
+        log('cyan', 'arrow', f"虚机列表: {info['vm_info']}")
 
         if not any(k in info['status'] for k in ["成功", "已签"]):
             sys.exit(1)
